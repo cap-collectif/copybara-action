@@ -6189,6 +6189,7 @@ const action = new copybaraAction_1.CopybaraAction({
     customConfig: core.getInput("custom_config"),
     workflow: core.getInput("workflow"),
     copybaraOptions: core.getInput("copybara_options").split(" "),
+    authoringAllowList: core.getInput("authoring_allow_list").split(" "),
     knownHosts: core.getInput("ssh_known_hosts"),
     prNumber: core.getInput("pr_number"),
     createRepo: core.getInput("create_repo") == "yes" ? true : false,
@@ -6278,7 +6279,7 @@ exports.getUserAgent = getUserAgent;
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.copyBaraSky = void 0;
-exports.copyBaraSky = (sotRepo, sotBranch, destinationRepo, destinationBranch, committer, localSot, pushInclude, pushExclude, pushTransformations, prInclude, prExclude, prTransformations) => `
+exports.copyBaraSky = (sotRepo, sotBranch, destinationRepo, destinationBranch, committer, localSot, pushInclude, pushExclude, pushTransformations, prInclude, prExclude, prTransformations, authoringAllowList) => `
 # Variables
 SOT_REPO = "${sotRepo}"
 SOT_BRANCH = "${sotBranch}"
@@ -6294,8 +6295,9 @@ PUSH_TRANSFORMATIONS = [${pushTransformations}
 
 PR_INCLUDE = [${prInclude}]
 PR_EXCLUDE = [${prExclude}]
-PR_TRANSFORMATIONS = [${prTransformations}
-]
+PR_TRANSFORMATIONS = [${prTransformations}]
+
+AUTHORING_ALLOW_LIST = ${authoringAllowList ? `["${authoringAllowList.join('","')}"]` : []}
 
 # Push workflow
 core.workflow(
@@ -6303,13 +6305,17 @@ core.workflow(
     origin = git.origin(
         url = LOCAL_SOT if LOCAL_SOT else SOT_REPO,
         ref = SOT_BRANCH,
+        first_parent = False,
     ),
     destination = git.github_destination(
         url = DESTINATION_REPO,
         push = DESTINATION_BRANCH,
     ),
     origin_files = glob(PUSH_INCLUDE, exclude = PUSH_EXCLUDE),
-    authoring = authoring.pass_thru(default = COMMITTER),
+    authoring = authoring.allowed(
+        default = COMMITTER,
+        allowlist = AUTHORING_ALLOW_LIST
+    ),
     mode = "ITERATIVE",
     transformations = [
         metadata.restore_author("ORIGINAL_AUTHOR", search_all_changes = True),
@@ -7254,7 +7260,7 @@ hostConfig.gitCredentialsPath = os_1.homedir() + "/.git-credentials";
 hostConfig.sshKeyPath = os_1.homedir() + "/.ssh/id_rsa";
 hostConfig.knownHostsPath = os_1.homedir() + "/.ssh/known_hosts";
 hostConfig.cbConfigPath = os_1.homedir() + "/copy.bara.sky";
-hostConfig.githubKnownHost = "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==";
+hostConfig.githubKnownHost = "github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=";
 
 
 /***/ }),
@@ -9892,7 +9898,7 @@ class CopyBara {
     }
     static getConfig(workflow, config) {
         this.validateConfig(config, workflow);
-        return copy_bara_sky_1.copyBaraSky(`git@github.com:${config.sot.repo}.git`, config.sot.branch, `git@github.com:${config.destination.repo}.git`, config.destination.branch, config.committer, "file:///usr/src/app", this.generateInExcludes(config.push.include), this.generateInExcludes(config.push.exclude), this.generateTransformations(config.push.move, config.push.replace, "push"), this.generateInExcludes(config.pr.include), this.generateInExcludes(config.pr.exclude), this.generateTransformations(config.pr.move, config.pr.replace, "pr"));
+        return copy_bara_sky_1.copyBaraSky(`git@github.com:${config.sot.repo}.git`, config.sot.branch, `git@github.com:${config.destination.repo}.git`, config.destination.branch, config.committer, "file:///usr/src/app", this.generateInExcludes(config.push.include), this.generateInExcludes(config.push.exclude), this.generateTransformations(config.push.move, config.push.replace, "push"), this.generateInExcludes(config.pr.include), this.generateInExcludes(config.pr.exclude), this.generateTransformations(config.pr.move, config.pr.replace, "pr"), config.authoringAllowList);
     }
     exec(dockerParams = [], copybaraOptions = []) {
         return __awaiter(this, void 0, void 0, function* () {
